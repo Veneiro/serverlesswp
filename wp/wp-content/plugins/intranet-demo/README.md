@@ -4,12 +4,12 @@ Pequeño ejemplo de intranet para WordPress, pensado para esta base de Serverles
 
 ## Qué incluye
 
-- Home pública con botón superior **Entrar a la intranet**.
+- Home pública con cabecera superior y botón **Entrar a la intranet**.
 - Acceso privado solo para `/intranet` (el resto del sitio puede quedar público).
 - Tipo de contenido interno `Anuncios intranet`.
-- Shortcode `[intranet_dashboard]` con panel básico para empleados.
+- Shortcode `[intranet_dashboard]` con panel más organizado (anuncios + accesos rápidos).
 - Creación automática de una página `/intranet` al activar el plugin.
-- Inicio de sesión con Microsoft (cuenta universitaria) en `wp-login.php` cuando está configurado.
+- Redirección directa al inicio de sesión de Microsoft cuando entras a `/intranet` (si está configurado).
 
 ## Uso rápido
 
@@ -27,6 +27,8 @@ Configura estas variables de entorno en tu despliegue (Vercel/Netlify):
 - `INTRANET_MS_CLIENT_SECRET`
 - `INTRANET_MS_ALLOWED_DOMAIN` (ej. `universidad.edu`)
 
+> Importante: si no defines `INTRANET_MS_CLIENT_ID` y `INTRANET_MS_CLIENT_SECRET`, la ruta `/intranet` devolverá un error de configuración SSO en lugar del login clásico de WordPress.
+
 URL de redirección en Azure App Registration:
 
 - `https://TU-DOMINIO/wp-admin/admin-post.php?action=intranet_ms_callback`
@@ -34,6 +36,8 @@ URL de redirección en Azure App Registration:
 Con esto, en la pantalla de login aparecerá el botón:
 
 - **Iniciar sesión con Microsoft (universidad)**
+
+Y además, al intentar entrar a `/intranet`, el sistema enviará automáticamente al flujo OAuth de Microsoft.
 
 ## Nota
 

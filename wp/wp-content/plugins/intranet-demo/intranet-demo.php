@@ -2,7 +2,7 @@
 /*
 Plugin Name: Intranet Demo
 Description: Ejemplo pequeño de intranet para WordPress: acceso privado, anuncios internos y panel con shortcode.
-Version: 1.1.0
+Version: 1.2.0
 Author: ServerlessWP Example
 */
 
@@ -35,6 +35,24 @@ function intranet_demo_microsoft_enabled() {
 	$config = intranet_demo_microsoft_config();
 
 	return '' !== $config['client_id'] && '' !== $config['client_secret'];
+}
+
+function intranet_demo_microsoft_auth_url( $redirect_to = '' ) {
+	$default_redirect = home_url( '/intranet/' );
+
+	if ( '' === $redirect_to ) {
+		$redirect_to = $default_redirect;
+	}
+
+	$redirect_to = wp_validate_redirect( $redirect_to, $default_redirect );
+
+	return add_query_arg(
+		array(
+			'action'      => 'intranet_ms_auth',
+			'redirect_to' => $redirect_to,
+		),
+		admin_url( 'admin-post.php' )
+	);
 }
 
 function intranet_demo_get_request_path() {
@@ -88,16 +106,148 @@ function intranet_demo_top_button() {
 		return;
 	}
 
-	$intranet_url = home_url( '/intranet/' );
-	?>
-	<div style="position:sticky;top:0;z-index:9999;text-align:center;padding:10px 14px;">
-		<a href="<?php echo esc_url( $intranet_url ); ?>">
-			<?php esc_html_e( 'Entrar a la intranet', 'intranet-demo' ); ?>
-		</a>
-	</div>
-	<?php
+	$GLOBALS['intranet_demo_top_button_rendered'] = true;
+
+	echo intranet_demo_get_top_button_markup();
 }
 add_action( 'wp_body_open', 'intranet_demo_top_button', 1 );
+
+function intranet_demo_get_top_button_markup() {
+	$intranet_url = home_url( '/intranet/' );
+
+	ob_start();
+	?>
+	<div class="intranet-topbar">
+		<div class="intranet-topbar__inner">
+			<p class="intranet-topbar__title"><?php esc_html_e( 'Portal universitario', 'intranet-demo' ); ?></p>
+			<a class="intranet-topbar__button" href="<?php echo esc_url( $intranet_url ); ?>">
+				<?php esc_html_e( 'Entrar a la intranet', 'intranet-demo' ); ?>
+			</a>
+		</div>
+	</div>
+	<?php
+
+	return ob_get_clean();
+}
+
+function intranet_demo_frontpage_top_button_fallback( $content ) {
+	if ( is_admin() || ! is_front_page() || ! is_main_query() || ! in_the_loop() ) {
+		return $content;
+	}
+
+	if ( ! empty( $GLOBALS['intranet_demo_top_button_rendered'] ) ) {
+		return $content;
+	}
+
+	return intranet_demo_get_top_button_markup() . $content;
+}
+add_filter( 'the_content', 'intranet_demo_frontpage_top_button_fallback', 5 );
+
+function intranet_demo_enqueue_styles() {
+	if ( is_admin() ) {
+		return;
+	}
+
+	if ( ! is_front_page() && ! intranet_demo_is_intranet_request() ) {
+		return;
+	}
+
+	wp_register_style( 'intranet-demo-styles', false, array(), '1.2.0' );
+	wp_enqueue_style( 'intranet-demo-styles' );
+
+	$css = '
+	.intranet-topbar {
+		margin-bottom: 16px;
+		padding: 12px 16px;
+		border-bottom: 1px solid #e2e4e7;
+	}
+	.intranet-topbar__inner {
+		max-width: 980px;
+		margin: 0 auto;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		flex-wrap: wrap;
+	}
+	.intranet-topbar__title {
+		margin: 0;
+		font-size: 1rem;
+		font-weight: 600;
+	}
+	.intranet-topbar__button {
+		display: inline-block;
+		padding: 8px 14px;
+		border: 1px solid currentColor;
+		border-radius: 6px;
+		text-decoration: none;
+		font-weight: 600;
+	}
+	.intranet-dashboard {
+		max-width: 980px;
+		margin: 24px auto;
+		padding: 0 16px;
+	}
+	.intranet-dashboard__header {
+		margin-bottom: 16px;
+	}
+	.intranet-dashboard__header h2 {
+		margin-bottom: 6px;
+	}
+	.intranet-dashboard__grid {
+		display: grid;
+		grid-template-columns: 2fr 1fr;
+		gap: 16px;
+	}
+	.intranet-card {
+		padding: 16px;
+		border: 1px solid #e2e4e7;
+		border-radius: 8px;
+	}
+	.intranet-card h3 {
+		margin-top: 0;
+		margin-bottom: 12px;
+	}
+	.intranet-announcements {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 12px;
+	}
+	.intranet-announcement {
+		padding-bottom: 12px;
+		border-bottom: 1px solid #f0f0f1;
+	}
+	.intranet-announcement:last-child {
+		padding-bottom: 0;
+		border-bottom: none;
+	}
+	.intranet-announcement__meta {
+		margin: 4px 0 8px;
+		font-size: 0.875rem;
+		opacity: 0.8;
+	}
+	.intranet-links {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 8px;
+	}
+	.intranet-links a {
+		text-decoration: none;
+	}
+	@media (max-width: 782px) {
+		.intranet-dashboard__grid {
+			grid-template-columns: 1fr;
+		}
+	}
+	';
+
+	wp_add_inline_style( 'intranet-demo-styles', $css );
+}
+add_action( 'wp_enqueue_scripts', 'intranet_demo_enqueue_styles' );
 
 function intranet_demo_register_post_type() {
 	$labels = array(
@@ -207,7 +357,16 @@ function intranet_demo_require_login() {
 
 	$request_path = intranet_demo_get_request_path();
 	$redirect_to  = home_url( intranet_demo_home_relative_path( $request_path ) );
-	wp_safe_redirect( wp_login_url( $redirect_to ) );
+
+	if ( ! intranet_demo_microsoft_enabled() ) {
+		wp_die(
+			esc_html__( 'La intranet requiere Microsoft SSO. Configura INTRANET_MS_CLIENT_ID e INTRANET_MS_CLIENT_SECRET.', 'intranet-demo' ),
+			esc_html__( 'Microsoft SSO no configurado', 'intranet-demo' ),
+			array( 'response' => 503 )
+		);
+	}
+
+	wp_safe_redirect( intranet_demo_microsoft_auth_url( $redirect_to ) );
 	exit;
 }
 add_action( 'template_redirect', 'intranet_demo_require_login', 0 );
@@ -229,31 +388,43 @@ function intranet_demo_render_dashboard() {
 	ob_start();
 	?>
 	<section class="intranet-dashboard">
-		<h2><?php echo esc_html( sprintf( __( 'Hola, %s', 'intranet-demo' ), $current_user->display_name ) ); ?></h2>
-		<p><?php esc_html_e( 'Este es un panel interno básico para compartir información del equipo.', 'intranet-demo' ); ?></p>
+		<header class="intranet-dashboard__header">
+			<h2><?php echo esc_html( sprintf( __( 'Hola, %s', 'intranet-demo' ), $current_user->display_name ) ); ?></h2>
+			<p><?php esc_html_e( 'Bienvenido al panel interno de la universidad.', 'intranet-demo' ); ?></p>
+		</header>
 
-		<h3><?php esc_html_e( 'Últimos anuncios', 'intranet-demo' ); ?></h3>
-		<?php if ( ! empty( $announcements ) ) : ?>
-			<ul>
-				<?php foreach ( $announcements as $announcement ) : ?>
-					<li>
-						<strong><?php echo esc_html( get_the_title( $announcement ) ); ?></strong><br />
-						<?php echo esc_html( wp_trim_words( wp_strip_all_tags( $announcement->post_content ), 24 ) ); ?>
-					</li>
-				<?php endforeach; ?>
-			</ul>
-		<?php else : ?>
-			<p><?php esc_html_e( 'Todavía no hay anuncios.', 'intranet-demo' ); ?></p>
-		<?php endif; ?>
+		<div class="intranet-dashboard__grid">
+			<article class="intranet-card">
+				<h3><?php esc_html_e( 'Últimos anuncios', 'intranet-demo' ); ?></h3>
+				<?php if ( ! empty( $announcements ) ) : ?>
+					<ul class="intranet-announcements">
+						<?php foreach ( $announcements as $announcement ) : ?>
+							<li class="intranet-announcement">
+								<strong><?php echo esc_html( get_the_title( $announcement ) ); ?></strong>
+								<p class="intranet-announcement__meta"><?php echo esc_html( get_the_date( get_option( 'date_format' ), $announcement ) ); ?></p>
+								<p><?php echo esc_html( wp_trim_words( wp_strip_all_tags( $announcement->post_content ), 30 ) ); ?></p>
+							</li>
+						<?php endforeach; ?>
+					</ul>
+				<?php else : ?>
+					<p><?php esc_html_e( 'Todavía no hay anuncios.', 'intranet-demo' ); ?></p>
+				<?php endif; ?>
+			</article>
 
-		<h3><?php esc_html_e( 'Accesos rápidos', 'intranet-demo' ); ?></h3>
-		<ul>
-			<li><a href="<?php echo esc_url( admin_url( 'profile.php' ) ); ?>"><?php esc_html_e( 'Mi perfil', 'intranet-demo' ); ?></a></li>
-			<?php if ( current_user_can( 'edit_posts' ) ) : ?>
-				<li><a href="<?php echo esc_url( admin_url( 'edit.php?post_type=intranet_announcement' ) ); ?>"><?php esc_html_e( 'Gestionar anuncios', 'intranet-demo' ); ?></a></li>
-			<?php endif; ?>
-			<li><a href="<?php echo esc_url( wp_logout_url( home_url( '/' ) ) ); ?>"><?php esc_html_e( 'Cerrar sesión', 'intranet-demo' ); ?></a></li>
-		</ul>
+			<aside class="intranet-card">
+				<h3><?php esc_html_e( 'Accesos rápidos', 'intranet-demo' ); ?></h3>
+				<ul class="intranet-links">
+					<li><a href="<?php echo esc_url( admin_url( 'profile.php' ) ); ?>"><?php esc_html_e( 'Mi perfil', 'intranet-demo' ); ?></a></li>
+					<?php if ( current_user_can( 'edit_posts' ) ) : ?>
+						<li><a href="<?php echo esc_url( admin_url( 'edit.php?post_type=intranet_announcement' ) ); ?>"><?php esc_html_e( 'Gestionar anuncios', 'intranet-demo' ); ?></a></li>
+					<?php endif; ?>
+					<li><a href="<?php echo esc_url( wp_logout_url( home_url( '/' ) ) ); ?>"><?php esc_html_e( 'Cerrar sesión', 'intranet-demo' ); ?></a></li>
+				</ul>
+				<?php if ( intranet_demo_microsoft_enabled() ) : ?>
+					<p class="intranet-announcement__meta"><?php esc_html_e( 'Acceso protegido con Microsoft.', 'intranet-demo' ); ?></p>
+				<?php endif; ?>
+			</aside>
+		</div>
 	</section>
 	<?php
 
@@ -271,20 +442,15 @@ function intranet_demo_microsoft_login_message( $message ) {
 		$redirect_to = wp_validate_redirect( wp_unslash( $_GET['redirect_to'] ), $redirect_to );
 	}
 
-	$auth_url = add_query_arg(
-		array(
-			'action'      => 'intranet_ms_auth',
-			'redirect_to' => $redirect_to,
-		),
-		admin_url( 'admin-post.php' )
-	);
+	$auth_url = intranet_demo_microsoft_auth_url( $redirect_to );
 
 	if ( isset( $_GET['intranet_ms_error'] ) ) {
 		$error_message = sanitize_text_field( wp_unslash( $_GET['intranet_ms_error'] ) );
 		$message      .= '<p class="message">' . esc_html( $error_message ) . '</p>';
 	}
 
-	$message .= '<p style="text-align:center;margin-top:18px;">';
+	$message .= '<p class="message">' . esc_html__( 'Este acceso usa Microsoft. Inicia con tu cuenta universitaria.', 'intranet-demo' ) . '</p>';
+	$message .= '<p class="intranet-ms-login">';
 	$message .= '<a class="button button-primary button-large" href="' . esc_url( $auth_url ) . '">';
 	$message .= esc_html__( 'Iniciar sesión con Microsoft (universidad)', 'intranet-demo' );
 	$message .= '</a>';
@@ -294,10 +460,47 @@ function intranet_demo_microsoft_login_message( $message ) {
 }
 add_filter( 'login_message', 'intranet_demo_microsoft_login_message' );
 
+function intranet_demo_login_styles() {
+	if ( ! intranet_demo_microsoft_enabled() ) {
+		return;
+	}
+
+	echo '<style>#loginform,#nav{display:none}.intranet-ms-login{text-align:center;margin-top:18px}.intranet-ms-login .button{width:100%;max-width:340px}</style>';
+}
+add_action( 'login_head', 'intranet_demo_login_styles' );
+
+function intranet_demo_force_microsoft_login() {
+	if ( is_user_logged_in() || ! intranet_demo_microsoft_enabled() ) {
+		return;
+	}
+
+	if ( isset( $_GET['intranet_ms_error'] ) ) {
+		return;
+	}
+
+	$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( $_REQUEST['action'] ) ) : 'login';
+
+	if ( in_array( $action, array( 'logout', 'lostpassword', 'retrievepassword', 'rp', 'resetpass', 'postpass', 'confirmaction' ), true ) ) {
+		return;
+	}
+
+	$redirect_to = home_url( '/intranet/' );
+	if ( isset( $_REQUEST['redirect_to'] ) ) {
+		$redirect_to = wp_validate_redirect( wp_unslash( $_REQUEST['redirect_to'] ), $redirect_to );
+	}
+
+	wp_safe_redirect( intranet_demo_microsoft_auth_url( $redirect_to ) );
+	exit;
+}
+add_action( 'login_init', 'intranet_demo_force_microsoft_login', 1 );
+
 function intranet_demo_ms_auth_start() {
 	if ( ! intranet_demo_microsoft_enabled() ) {
-		wp_safe_redirect( wp_login_url( home_url( '/intranet/' ) ) );
-		exit;
+		wp_die(
+			esc_html__( 'Microsoft SSO no está configurado todavía para esta intranet.', 'intranet-demo' ),
+			esc_html__( 'Microsoft SSO no configurado', 'intranet-demo' ),
+			array( 'response' => 503 )
+		);
 	}
 
 	$redirect_to = home_url( '/intranet/' );
