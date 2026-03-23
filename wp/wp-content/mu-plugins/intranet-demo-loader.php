@@ -14,6 +14,27 @@ $intranet_demo_plugin = WP_CONTENT_DIR . '/plugins/intranet-demo/intranet-demo.p
 if ( file_exists( $intranet_demo_plugin ) ) {
 	require_once $intranet_demo_plugin;
 
+	add_filter(
+		'template',
+		function () {
+			return 'raiz-intranet-theme';
+		}
+	);
+
+	add_filter(
+		'stylesheet',
+		function () {
+			return 'raiz-intranet-theme';
+		}
+	);
+
+	add_filter(
+		'pre_option_show_on_front',
+		function () {
+			return 'posts';
+		}
+	);
+
 	add_action(
 		'init',
 		function () {
